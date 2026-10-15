@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課堂秩序分貝計時器</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --bg-color: #f5f7fa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            background: #bdc3c7;
+            color: white;
+        }
+
+        .status-active { background: var(--success-color); }
+        .status-over { background: var(--danger-color); }
+
+        /* 計時器與分貝顯示 */
+        .display-section {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+
+        .display-box {
+            flex: 1;
+            margin: 0 10px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .display-value {
+            font-size: 3rem;
+            font-weight: bold;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+
+        /* 音量條 */
+        .meter-container {
+            width: 100%;
+            height: 30px;
+            background-color: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        #volume-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--success-color);
+            transition: width 0.1s ease, background-color 0.2s;
+        }
+
+        /* 閥值指示線 */
+        #threshold-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background-color: var(--danger-color);
+            z-index: 2;
+        }
+
+        /* 控制項 */
+        .control-group {
+            margin: 20px 0;
+            text-align: left;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.2s;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-reset {
+            background-color: #7f8c8d;
+            margin-left: 10px;
+        }
+        .btn-reset:hover { background-color: #95a5a6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>課堂秩序分貝計時器</h1>
+    <div id="status" class="status-badge">等待麥克風權限...</div>
+
+    <div class="display-section">
+        <div class="display-box">
+            <div>目前音量</div>
+            <div id="db-display" class="display-value">0</div>
+        </div>
+        <div class="display-box">
+            <div>違規累積時間</div>
+            <div id="timer-display" class="display-value" style="color: var(--danger-color);">00:00.0</div>
+        </div>
+    </div>
+
+    <div class="meter-container">
+        <div id="threshold-line" style="left: 70%;"></div>
+        <div id="volume-bar"></div>
+    </div>
+
+    <div class="control-group">
+        <label for="threshold-slider">
+            <span>超標閥值設定 (分貝環境值):</span>
+            <span id="threshold-value">70</span>
+        </label>
+        <input type="range" id="threshold-slider" min="30" max="100" value="70">
+        <small style="color:#7f8c8d; display:block; margin-top:5px;">※ 提示：正常說話約 60-70，請根據教室環境調整紅線位置。</small>
+    </div>
+
+    <div>
+        <button id="start-btn">開始偵測</button>
+        <button id="reset-btn" class="btn-reset">計時歸零</button>
+    </div>
+</div>
+
+<script>
+    // 獲取 DOM 元素
+    const startBtn = document.getElementById('start-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const statusBadge = document.getElementById('status');
+    const dbDisplay = document.getElementById('db-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const volumeBar = document.getElementById('volume-bar');
+    const thresholdSlider = document.getElementById('threshold-slider');
+    const thresholdValue = document.getElementById('threshold-value');
+    const thresholdLine = document.getElementById('threshold-line');
+
+    // 聲音與計時變數
+    let audioContext;
+    let analyser;
+    let microphone;
+    let javascriptNode;
+    
+    let isTracking = false;
+    let threshold = 70;
+    
+    // 計時器變數
+    let startTime = 0;
+    let elapsedTime = 0; // 毫秒
+    let timerInterval;
+    let isTiming = false;
+
+    // 監聽閥值滑桿
+    thresholdSlider.addEventListener('input', (e) => {
+        threshold = e.target.value;
+        thresholdValue.textContent = threshold;
+        // 更新紅線位置 (對應 min=30, max=100 的百分比)
+        const percentage = ((threshold - 30) / (100 - 30)) * 100;
+        thresholdLine.style.left = `${percentage}%`;
+    });
+    // 初始化紅線位置
+    thresholdSlider.dispatchEvent(new Event('input'));
+
+    // 歸零按鈕
+    resetBtn.addEventListener('click', () => {
+        elapsedTime = 0;
+        updateTimerDisplay(0);
+    });
+
+    // 開始/停止按鈕
+    startBtn.addEventListener('click', () => {
+        if (!isTracking) {
+            initAudio();
+        } else {
+            stopTracking();
+        }
+    });
+
+    async function initAudio() {
+        try {
+            // 請求麥克風權限
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            microphone = audioContext.createMediaStreamSource(stream);
+            
+            analyser.fftSize = 256;
+            microphone.connect(analyser);
+
+            // 設定定時更新音量
+            javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+            analyser.connect(javascriptNode);
+            javascriptNode.connect(audioContext.destination);
+
+            javascriptNode.onaudioprocess = () => {
+                const array = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(array);
+                
+                // 計算平均音量 (0 - 255)
+                let values = 0;
+                const length = array.length;
+                for (let i = 0; i < length; i++) {
+                    values += array[i];
+                }
+                const average = values / length;
+                
+                // 將 0-255 對應轉換為類似分貝的數值 (30dB - 100dB 之間)
+                // 註：這非精確物理分貝，而是相對環境音量，非常適合秩序管理
+                const currentDb = Math.round((average / 255) * 70 + 30);
+                
+                updateUI(currentDb);
+            };
+
+            isTracking = true;
+            startBtn.textContent = '停止偵測';
+            statusBadge.textContent = '偵測中';
+            statusBadge.className = 'status-badge status-active';
+
+        } catch (err) {
+            alert('無法取得麥克風權限：' + err.message);
+            statusBadge.textContent = '權限遭拒';
+        }
+    }
+
+    function stopTracking() {
+        isTracking = false;
+        startBtn.textContent = '開始偵測';
+        statusBadge.textContent = '已停止';
+        statusBadge.className = 'status-badge';
+        
+        if (javascriptNode) javascriptNode.onaudioprocess = null;
+        if (audioContext) audioContext.close();
+        
+        stopTimer();
+        dbDisplay.textContent = '0';
+        volumeBar.style.width = '0%';
+    }
+
+    function updateUI(db) {
+        dbDisplay.textContent = db;
+        
+        // 更新音量條長度 (30dB-100dB 對應 0%-100%)
+        const barPercentage = Math.max(0, Math.min(100, ((db - 30) / (100 - 30)) * 100));
+        volumeBar.style.width = `${barPercentage}%`;
+
+        // 判斷是否超標
+        if (db >= threshold) {
+            volumeBar.style.backgroundColor = 'var(--danger-color)';
+            statusBadge.textContent = '吵鬧中！';
+            statusBadge.className = 'status-badge status-over';
+            startTimer();
+        } else {
+            volumeBar.style.backgroundColor = 'var(--success-color)';
+            statusBadge.textContent = '良好';
+            statusBadge.className = 'status-badge status-active';
+            stopTimer();
+        }
+    }
+
+    // 計時器邏輯
+    function startTimer() {
+        if (!isTiming) {
+            isTiming = true;
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                updateTimerDisplay(elapsedTime);
+            }, 100); // 每 0.1 秒更新一次
+        }
+    }
+
+    function stopTimer() {
+        if (isTiming) {
+            isTiming = false;
+            clearInterval(timerInterval);
+        }
+    }
+
+    function updateTimerDisplay(ms) {
+        const totalSeconds = ms / 1000;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.floor(totalSeconds % 60);
+        const tenths = Math.floor((ms % 1000) / 100);
+
+        const minStr = String(minutes).padStart(2, '0');
+        const secStr = String(seconds).padStart(2, '0');
+
+        timerDisplay.textContent = `${minStr}:${secStr}.${tenths}`;
+    }
+</script>
+
+</body>
+</html>
