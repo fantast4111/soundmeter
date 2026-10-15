@@ -1,428 +1,574 @@
-:課堂音量監控與自動校準懲罰計時器:classroom_volume_monitor.html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂音量監控與懲罰計時系統</title>
-    <!-- Tailwind CSS -->
+    <title>智慧課堂秩序分貝計時器 (可愛小貓咪修復版)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); opacity: 0.5; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(0.95); opacity: 0.5; }
+        .clock-hand {
+            transform-origin: bottom center;
         }
-        .animate-pulse-red {
-            animation: pulse-red-bg 1s infinite;
+
+        /* 呼吸動畫 (安靜時) */
+        @keyframes gentle-breathe {
+            0%, 100% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.04) translateY(-4px); }
         }
-        @keyframes pulse-red-bg {
-            0%, 100% { background-color: rgba(220, 38, 38, 0.15); border-color: rgba(239, 68, 68, 0.4); }
-            50% { background-color: rgba(220, 38, 38, 0.4); border-color: rgba(239, 68, 68, 0.8); }
+        .cat-sleep {
+            animation: gentle-breathe 3.5s ease-in-out infinite;
         }
-        /* 隱藏捲軸 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+
+        /* 驚嚇抖動動畫 (超標時) */
+        @keyframes shock-jump {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            20% { transform: translateY(-12px) rotate(-4deg); }
+            40% { transform: translateY(0) rotate(4deg); }
+            60% { transform: translateY(-8px) rotate(-2deg); }
+            80% { transform: translateY(0) rotate(2deg); }
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .cat-awake {
+            animation: shock-jump 0.4s ease-in-out infinite;
         }
-        /* 小河狸動畫控制 */
-        .beaver-tail {
-            transform-origin: 20% 80%;
-            animation: tail-wag 2s ease-in-out infinite;
+
+        /* 隱藏全螢幕時不需要顯示的元素 */
+        :fullscreen .normal-only {
+            display: none !important;
         }
-        @keyframes tail-wag {
-            0%, 100% { transform: rotate(0deg); }
-            50% { transform: rotate(-10deg); }
+        :-webkit-full-screen .normal-only {
+            display: none !important;
         }
-        .sleeping-zzz {
-            animation: zzz-float 2.5s ease-in-out infinite;
+
+        /* 全螢幕模式下的專屬沈浸排版（固定尺寸與精準置中，徹底解決走位） */
+        :fullscreen body {
+            overflow: hidden !important;
+            background-color: #0f172a !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            height: 100vh !important;
+            width: 100vw !important;
+            margin: 0 !important;
+            padding: 2rem !important;
         }
-        @keyframes zzz-float {
-            0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
-            50% { opacity: 1; }
-            100% { transform: translate(15px, -25px) scale(1.2); opacity: 0; }
+        :-webkit-full-screen body {
+            overflow: hidden !important;
+            background-color: #0f172a !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            height: 100vh !important;
+            width: 100vw !important;
+            margin: 0 !important;
+            padding: 2rem !important;
         }
-        .scared-shake {
-            animation: shake 0.15s ease-in-out infinite alternate;
+
+        :fullscreen #main-dashboard {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: center !important;
+            align-items: stretch !important;
+            gap: 3rem !important;
+            width: 100% !important;
+            max-width: 1200px !important;
+            height: auto !important;
+            margin: auto !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            100% { transform: translate(-1px, -2px) rotate(-1deg); }
+        :-webkit-full-screen #main-dashboard {
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: center !important;
+            align-items: stretch !important;
+            gap: 3rem !important;
+            width: 100% !important;
+            max-width: 1200px !important;
+            height: auto !important;
+            margin: auto !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* 全螢幕下的卡片等比例展開與固定排版 */
+        :fullscreen #cat-display-card {
+            flex: 1 !important;
+            max-width: 450px !important;
+            transform: none !important;
+            background: #1e293b !important;
+            border: 2px solid rgba(59, 130, 246, 0.4) !important;
+            border-radius: 1.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 3rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+        }
+        :-webkit-full-screen #cat-display-card {
+            flex: 1 !important;
+            max-width: 450px !important;
+            transform: none !important;
+            background: #1e293b !important;
+            border: 2px solid rgba(59, 130, 246, 0.4) !important;
+            border-radius: 1.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 3rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        :fullscreen #fullscreen-timer-card {
+            flex: 1 !important;
+            max-width: 550px !important;
+            transform: none !important;
+            background: #1e293b !important;
+            border: 3px solid rgba(244, 63, 94, 0.6) !important;
+            border-radius: 1.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 3rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+        }
+        :-webkit-full-screen #fullscreen-timer-card {
+            flex: 1 !important;
+            max-width: 550px !important;
+            transform: none !important;
+            background: #1e293b !important;
+            border: 3px solid rgba(244, 63, 94, 0.6) !important;
+            border-radius: 1.5rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 3rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        /* 全螢幕下內部的貓咪插畫與文字放大調整 */
+        :fullscreen #fullscreen-cat-box {
+            width: 220px !important;
+            height: 220px !important;
+        }
+        :-webkit-full-screen #fullscreen-cat-box {
+            width: 220px !important;
+            height: 220px !important;
+        }
+
+        :fullscreen #fullscreen-cat-svg {
+            width: 150px !important;
+            height: 150px !important;
+        }
+        :-webkit-full-screen #fullscreen-cat-svg {
+            width: 150px !important;
+            height: 150px !important;
+        }
+
+        :fullscreen #cat-status-text {
+            font-size: 1.25rem !important;
+            margin-top: 1rem !important;
+        }
+        :-webkit-full-screen #cat-status-text {
+            font-size: 1.25rem !important;
+            margin-top: 1rem !important;
+        }
+
+        :fullscreen #timer-display {
+            font-size: 6rem !important;
+            margin: 1.5rem 0 !important;
+        }
+        :-webkit-full-screen #timer-display {
+            font-size: 6rem !important;
+            margin: 1.5rem 0 !important;
+        }
+
+        :fullscreen #timer-title-text {
+            font-size: 1.25rem !important;
+        }
+        :-webkit-full-screen #timer-title-text {
+            font-size: 1.25rem !important;
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans transition-all duration-500">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 md:p-8 font-sans">
 
-    <!-- 頂部導航欄 -->
-    <header id="mainHeader" class="border-b border-slate-900 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 transition-all duration-300">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3">
-                <div class="p-2.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/20">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold tracking-wider">課堂音量自動監控系統</h1>
-                    <p class="text-xs text-slate-400">Classroom Decibel & Penalty System</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-3 flex-wrap">
-                <div id="statusTag" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-850 text-slate-400 border border-slate-800 flex items-center gap-1.5 transition-all">
-                    <span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
-                    未啟動監測
-                </div>
-                <button id="presModeBtn" class="px-3.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5">
-                    🖥️ 投影模式
-                </button>
-                <button id="fullscreenBtn" class="p-2 bg-slate-800 hover:bg-slate-755 rounded-lg text-slate-300 transition-all" title="全螢幕">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
-                </button>
-            </div>
+    <!-- 頁首與功能指南 (正常模式顯示) -->
+    <header class="normal-only w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-300 via-rose-400 to-purple-400 bg-clip-text text-transparent flex items-center gap-2">
+                🐱 萌貓課堂秩序計時器
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">保持安靜讓小貓咪安心睡覺，全螢幕投影可進入沈浸式模式！</p>
+        </div>
+        <div class="flex gap-2">
+            <!-- 全螢幕按鈕 -->
+            <button id="fullscreen-btn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-lg">
+                🖵 進入沈浸全螢幕
+            </button>
+            <button onclick="openModal('guide-modal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 border border-slate-700">
+                ❓ 使用指南
+            </button>
         </div>
     </header>
 
-    <!-- 主區塊 -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 transition-all duration-300">
+    <!-- 主儀表板區域 -->
+    <main id="main-dashboard" class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-8 transition-all">
         
-        <!-- 左側與中間：大儀表板 -->
-        <div class="lg:col-span-2 flex flex-col gap-6" id="dashboardCol">
+        <!-- 左側：可愛小貓咪吉祥物與時鐘 (4/12 寬) -->
+        <div id="cat-display-card" class="lg:col-span-4 bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-slate-700 flex flex-col justify-between items-center text-center shadow-xl transition-all">
+            <h2 class="normal-only text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">秩序吉祥物</h2>
             
-            <!-- 警示大看板與小河狸動畫 -->
-            <div id="alarmCard" class="bg-gradient-to-br from-emerald-950/20 to-slate-900 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden transition-all duration-500 shadow-xl min-h-[300px]">
-                <div id="glowBg" class="absolute inset-0 bg-emerald-500/5 mix-blend-screen pointer-events-none transition-all duration-500"></div>
-                
-                <div class="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold" id="statusLabel">當前課堂狀態</span>
-                        <h2 class="text-3xl sm:text-4xl font-black mt-1 text-emerald-300 tracking-tight transition-all duration-300" id="statusMessage">小河狸正在安靜睡覺...</h2>
-                    </div>
-
-                    <!-- 🦫 河狸互動動畫區 -->
-                    <div class="relative w-32 h-32 flex-shrink-0 mx-auto sm:mx-0 flex items-center justify-center bg-slate-950/40 rounded-full border border-slate-800/80 p-2 shadow-inner">
-                        
-                        <!-- 睡覺時動態泡泡 Zzz -->
-                        <div id="zzzBubble" class="absolute -top-1 -right-1 z-20 pointer-events-none text-indigo-300 font-extrabold text-xl font-mono sleeping-zzz select-none">
-                            z<sup>Z</sup><sub>z</sub>
-                        </div>
-
-                        <!-- 吵鬧驚醒時警示標誌 -->
-                        <div id="alertIcon" class="absolute -top-2 -right-1 z-20 pointer-events-none text-rose-500 text-2xl font-black animate-bounce hidden select-none">
-                            ⚡❗
-                        </div>
-
-                        <!-- 河狸向量繪圖 (SVG) -->
-                        <svg id="beaverSvg" class="w-28 h-28 transition-transform duration-300" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <!-- 尾巴 -->
-                            <ellipse class="beaver-tail" cx="25" cy="85" rx="18" ry="8" fill="#5c3818" stroke="#3b220c" stroke-width="2.5" transform="rotate(-15 25 85)"/>
-                            
-                            <!-- 身體 -->
-                            <ellipse cx="60" cy="75" rx="35" ry="30" fill="#8c5322" stroke="#5c3818" stroke-width="3"/>
-                            <!-- 肚皮 -->
-                            <ellipse cx="60" cy="80" rx="22" ry="18" fill="#d9a066"/>
-                            
-                            <!-- 耳朵 -->
-                            <circle cx="38" cy="35" r="9" fill="#5c3818"/>
-                            <circle cx="38" cy="35" r="5" fill="#d9a066"/>
-                            <circle cx="82" cy="35" r="9" fill="#5c3818"/>
-                            <circle cx="82" cy="35" r="5" fill="#d9a066"/>
-
-                            <!-- 頭部 -->
-                            <circle cx="60" cy="48" r="28" fill="#8c5322" stroke="#5c3818" stroke-width="3"/>
-
-                            <!-- 臉頰與腮幫子 -->
-                            <ellipse cx="50" cy="55" rx="10" ry="8" fill="#d9a066"/>
-                            <ellipse cx="70" cy="55" rx="10" ry="8" fill="#d9a066"/>
-
-                            <!-- 招牌大門牙 -->
-                            <rect x="54" y="58" width="5" height="8" rx="1" fill="#ffffff" stroke="#3b220c" stroke-width="1"/>
-                            <rect x="61" y="58" width="5" height="8" rx="1" fill="#ffffff" stroke="#3b220c" stroke-width="1"/>
-
-                            <!-- 鼻子 -->
-                            <ellipse cx="60" cy="52" rx="6" ry="4" fill="#3b220c"/>
-
-                            <!-- 眼睛：睡覺狀態 (閉眼弧線) -->
-                            <g id="eyesSleeping" stroke="#3b220c" stroke-width="3" stroke-linecap="round">
-                                <path d="M 43 45 Q 48 50 53 45" />
-                                <path d="M 67 45 Q 72 50 77 45" />
-                            </g>
-
-                            <!-- 眼睛：驚醒超標狀態 (大張眼鏡，預設隱藏) -->
-                            <g id="eyesAwake" class="hidden">
-                                <circle cx="48" cy="44" r="6" fill="#ffffff" stroke="#3b220c" stroke-width="2"/>
-                                <circle cx="48" cy="44" r="2.5" fill="#000000"/>
-                                <circle cx="72" cy="44" r="6" fill="#ffffff" stroke="#3b220c" stroke-width="2"/>
-                                <circle cx="72" cy="44" r="2.5" fill="#000000"/>
-                            </g>
-
-                            <!-- 小手手 -->
-                            <ellipse cx="42" cy="72" rx="6" ry="4" fill="#5c3818"/>
-                            <ellipse cx="78" cy="72" rx="6" ry="4" fill="#5c3818"/>
-                        </svg>
-                    </div>
-
-                    <div class="text-right">
-                        <span class="text-xs text-slate-400 block">本次吵鬧累計</span>
-                        <span id="currentTimer" class="text-3xl font-mono font-bold text-slate-200">0.0s</span>
-                    </div>
+            <!-- 可愛小貓咪動畫區塊 (SVG 插畫風格) -->
+            <div id="fullscreen-cat-box" class="relative w-44 h-44 my-2 bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl flex flex-col items-center justify-center border-2 border-slate-700 shadow-inner overflow-hidden transition-all">
+                <div id="cat-svg-container" class="cat-sleep transition-all duration-300 flex items-center justify-center">
+                    <svg id="fullscreen-cat-svg" width="100" height="100" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- 左耳朵 -->
+                        <path d="M 32 42 L 20 15 L 48 30 Z" fill="#f43f5e" />
+                        <path d="M 34 38 L 25 20 L 43 31 Z" fill="#fbcfe8" />
+                        <!-- 右耳朵 -->
+                        <path d="M 88 42 L 100 15 L 72 30 Z" fill="#f43f5e" />
+                        <path d="M 86 38 L 95 20 L 77 31 Z" fill="#fbcfe8" />
+                        <!-- 貓咪頭部 -->
+                        <circle cx="60" cy="65" r="38" fill="#fb7185"/>
+                        <!-- 腮紅 -->
+                        <circle cx="38" cy="72" rx="6" ry="4" fill="#fda4af" opacity="0.8"/>
+                        <circle cx="82" cy="72" rx="6" ry="4" fill="#fda4af" opacity="0.8"/>
+                        <!-- 眼睛 (預設為閉眼睡覺 ^_^ ) -->
+                        <path id="cat-left-eye" d="M 42 62 Q 48 55 54 62" stroke="#4c0519" stroke-width="4" stroke-linecap="round"/>
+                        <path id="cat-right-eye" d="M 66 62 Q 72 55 78 62" stroke="#4c0519" stroke-width="4" stroke-linecap="round"/>
+                        <!-- 鼻子 -->
+                        <polygon points="57,70 63,70 60,74" fill="#4c0519"/>
+                        <!-- 嘴巴 -->
+                        <path id="cat-mouth" d="M 54 78 Q 57 82 60 78 Q 63 82 66 78" stroke="#4c0519" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <!-- 鬍鬚 -->
+                        <line x1="25" y1="72" x2="45" y2="74" stroke="#4c0519" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="25" y1="80" x2="45" y2="78" stroke="#4c0519" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="95" y1="72" x2="75" y2="74" stroke="#4c0519" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="95" y1="80" x2="75" y2="78" stroke="#4c0519" stroke-width="2" stroke-linecap="round"/>
+                        <!-- 睡覺 Zzz 符號 -->
+                        <text id="cat-zzzz" x="80" y="35" fill="#38bdf8" font-size="18" font-weight="bold" font-family="monospace">z Z</text>
+                    </svg>
                 </div>
-
-                <!-- 巨型懲罰時間 -->
-                <div class="relative z-10 mt-6 flex flex-col sm:flex-row justify-between items-baseline sm:items-end gap-4 border-t border-slate-800/60 pt-6">
-                    <div>
-                        <span class="text-xs text-slate-400 block uppercase font-semibold">⏰ 累積下課拖延（懲罰時間）</span>
-                        <div class="flex items-baseline gap-2 mt-1">
-                            <span id="totalTimer" class="text-7xl sm:text-8xl font-mono font-black text-white tracking-tighter transition-all duration-300">0.0</span>
-                            <span class="text-2xl font-bold text-slate-400">秒</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-2 w-full sm:w-auto">
-                        <button id="resetTotalBtn" class="w-full sm:w-auto px-5 py-3 bg-slate-800/85 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl transition-all text-sm flex items-center justify-center gap-2 border border-slate-700/50">
-                            🔄 重新累計
-                        </button>
-                    </div>
+                <div id="cat-status-text" class="text-xs font-bold text-emerald-400 mt-1 transition-all">小貓正在安靜睡覺...</div>
+            </div>
+            
+            <!-- 模擬時鐘 (正常模式顯示) -->
+            <div class="normal-only relative w-28 h-28 my-1">
+                <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" class="fill-slate-950 stroke-slate-700" stroke-width="4"/>
+                    <line x1="50" y1="8" x2="50" y2="12" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="50" y1="92" x2="50" y2="88" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="8" y1="50" x2="12" y2="50" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="92" y1="50" x2="88" y2="50" class="stroke-slate-500" stroke-width="2"/>
+                    <line id="hour-hand" x1="50" y1="50" x2="50" y2="28" class="stroke-slate-100 clock-hand" stroke-width="3" stroke-linecap="round"/>
+                    <line id="min-hand" x1="50" y1="50" x2="50" y2="18" class="stroke-slate-300 clock-hand" stroke-width="2" stroke-linecap="round"/>
+                    <line id="sec-hand" x1="50" y1="50" x2="50" y2="14" class="stroke-rose-500 clock-hand" stroke-width="1" stroke-linecap="round"/>
+                    <circle cx="50" cy="50" r="2.5" class="fill-rose-500"/>
+                </svg>
+            </div>
+            <div class="normal-only text-xl font-bold tracking-widest text-slate-100 font-mono mb-2" id="digital-clock">00:00:00</div>
+            
+            <!-- 狀態指示器 -->
+            <div class="normal-only w-full">
+                <div id="status-badge" class="w-full py-2 rounded-xl font-bold text-base bg-slate-700 text-slate-300 transition-all duration-300 text-center">
+                    等待開始
                 </div>
             </div>
-
-            <!-- 音量偵測與調節 -->
-            <div id="settingsCard" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col gap-6 shadow-lg transition-all duration-300">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h3 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                        即時音量與閥值調節 (30dB - 100dB)
-                    </h3>
-                    <button id="calibrateBtn" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5 shadow-lg shadow-orange-500/10">
-                        ⚡ 自動偵測並校準環境音 (3秒)
-                    </button>
-                </div>
-
-                <!-- 音量進度條 -->
-                <div class="space-y-3">
-                    <div class="flex justify-between text-xs text-slate-400 font-medium">
-                        <span>當前音量分貝: <strong id="currentVolNum" class="text-indigo-400 font-mono text-sm">30 dB</strong></span>
-                        <span>警報閥值設定: <strong id="thresholdNum" class="text-rose-400 font-mono text-sm">60 dB</strong></span>
-                    </div>
-                    
-                    <div class="h-10 bg-slate-950 rounded-2xl relative overflow-hidden border border-slate-800 flex items-center">
-                        <div id="volumeBar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 w-0 transition-all duration-75 ease-out"></div>
-                        <!-- 閥值標記線 (30-100dB 對應 0-100%) -->
-                        <div id="thresholdMarker" class="absolute top-0 bottom-0 w-1 bg-rose-500 shadow-[0_0_10px_#f43f5e] z-10 transition-all duration-150" style="left: 42.8%;">
-                            <span class="absolute -top-1 left-1/2 -translate-x-1/2 bg-rose-600 text-[10px] text-white px-1.5 py-0.5 rounded font-bold whitespace-nowrap shadow-md">閥值</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 控制桿 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/40">
-                    <div class="space-y-2">
-                        <label for="thresholdInput" class="text-xs font-bold text-slate-300 flex justify-between">
-                            <span>🔊 警報閥值分貝 (dB)</span>
-                            <span class="text-slate-500 font-normal">滑動調整環境敏捷度</span>
-                        </label>
-                        <input type="range" id="thresholdInput" min="35" max="95" value="60" class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-rose-500">
-                    </div>
-
-                    <div class="space-y-2">
-                        <label for="graceInput" class="text-xs font-bold text-slate-300 flex justify-between">
-                            <span>⏱️ 恢復安靜寬限時間</span>
-                            <span id="graceValText" class="text-rose-400 font-mono">1.5 秒</span>
-                        </label>
-                        <input type="range" id="graceInput" min="5" max="50" value="15" class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-rose-500">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 高級配置開關 -->
-            <div id="switchesCard" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-lg transition-all duration-300">
-                <div class="flex items-center justify-between p-3.5 bg-slate-950/40 rounded-xl border border-slate-800/50">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">🔔</span>
-                        <div>
-                            <span class="text-sm font-semibold block">超標警示音</span>
-                            <span class="text-[10px] text-slate-500">超音量時發出警示嗶聲</span>
-                        </div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="buzzerToggle" class="sr-only peer">
-                        <div class="w-11 h-6 bg-slate-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600 peer-checked:after:bg-white peer-checked:after:border-rose-600"></div>
-                    </label>
-                </div>
-
-                <div class="flex items-center justify-between p-3.5 bg-slate-950/40 rounded-xl border border-slate-800/50">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">⚡</span>
-                        <div>
-                            <span class="text-sm font-semibold block">雜音過濾器</span>
-                            <span class="text-[10px] text-slate-500">忽略咳嗽、掉筆等瞬間雜音</span>
-                        </div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="filterToggle" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-slate-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600 peer-checked:after:bg-white peer-checked:after:border-rose-600"></div>
-                    </label>
-                </div>
-
-                <div class="flex items-center justify-between p-3.5 bg-slate-950/40 rounded-xl border border-slate-800/50">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl">🗣️</span>
-                        <div>
-                            <span class="text-sm font-semibold block">語音點名警告</span>
-                            <span class="text-[10px] text-slate-500">安靜時播報被扣秒數</span>
-                        </div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="ttsToggle" class="sr-only peer">
-                        <div class="w-11 h-6 bg-slate-850 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600 peer-checked:after:bg-white peer-checked:after:border-rose-600"></div>
-                    </label>
-                </div>
-            </div>
-
         </div>
 
-        <!-- 右側：主按鈕與歷史紀錄 -->
-        <div class="flex flex-col gap-6" id="rightControlCol">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-lg flex flex-col gap-4">
-                <button id="startStopBtn" class="w-full py-4 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 active:from-rose-700 active:to-amber-700 text-white font-black rounded-xl transition-all shadow-lg shadow-rose-600/10 text-lg flex items-center justify-center gap-2">
-                    <svg id="playIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <svg id="pauseIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span id="startBtnText">開啟/開啟權限監測系統</span>
+        <!-- 中間與右側：分貝計與計時器 (8/12 寬) -->
+        <div class="lg:col-span-8 bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-slate-700 flex flex-col justify-between shadow-xl">
+            
+            <!-- 上半：數據顯示區 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- 目前分貝 (正常模式顯示) -->
+                <div class="normal-only bg-slate-950/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-between relative overflow-hidden">
+                    <span class="text-xs text-slate-400 font-bold">目前教室音量</span>
+                    <div class="flex items-baseline gap-1 my-2">
+                        <span id="db-value" class="text-5xl font-extrabold font-mono text-emerald-400 transition-colors duration-150">30</span>
+                        <span class="text-lg text-slate-500">dB</span>
+                    </div>
+                    <div class="absolute bottom-2 right-4 flex items-end gap-1 h-8 opacity-40">
+                        <div class="w-1 bg-emerald-400 h-2 rounded-full transition-all duration-150" id="wave-1"></div>
+                        <div class="w-1 bg-emerald-400 h-4 rounded-full transition-all duration-150" id="wave-2"></div>
+                        <div class="w-1 bg-emerald-400 h-6 rounded-full transition-all duration-150" id="wave-3"></div>
+                        <div class="w-1 bg-emerald-400 h-3 rounded-full transition-all duration-150" id="wave-4"></div>
+                    </div>
+                </div>
+
+                <!-- 累計吵鬧時間 (全螢幕核心顯示) -->
+                <div id="fullscreen-timer-card" class="col-span-1 md:col-span-2 lg:col-span-1 bg-slate-950/80 rounded-2xl p-6 border-2 border-rose-500/40 flex flex-col justify-center items-center text-center shadow-2xl transition-all">
+                    <span id="timer-title-text" class="text-xs md:text-sm text-rose-400 font-bold tracking-wider uppercase mb-1">🔥 吵鬧累積時間 (超過閥值)</span>
+                    <div id="timer-display" class="text-6xl md:text-7xl font-black font-mono text-rose-500 my-2 tracking-wider drop-shadow-[0_0_15px_rgba(244,63,94,0.4)] transition-all">
+                        00:00.0
+                    </div>
+                    <span class="normal-only text-xs text-slate-500">當前分貝大於設定閥值時將自動累加計時</span>
+                </div>
+            </div>
+
+            <!-- 中：分貝計量條與滑桿 (正常模式顯示) -->
+            <div class="normal-only space-y-6 mb-6">
+                <div>
+                    <div class="flex justify-between text-xs text-slate-400 mb-2">
+                        <span>💡 安靜 (30 dB)</span>
+                        <span>🗣️ 正常交談 (65 dB)</span>
+                        <span>📢 吵鬧 (90+ dB)</span>
+                    </div>
+                    <div class="relative h-8 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner flex items-center">
+                        <div id="threshold-line" class="absolute top-0 bottom-0 w-1 bg-rose-500 z-10 shadow-[0_0_8px_#f43f5e] transition-all duration-150" style="left: 57%;"></div>
+                        <div id="volume-bar" class="h-full w-0 bg-gradient-to-r from-emerald-500 via-yellow-500 to-rose-500 transition-all duration-75" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- 閥值調整滑動條 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-slate-300">🔊 設定觸發計時閥值：</span>
+                        <div class="bg-slate-950 px-3 py-1 rounded-lg border border-slate-700">
+                            <span id="threshold-value" class="text-lg font-mono font-bold text-amber-400">70</span>
+                            <span class="text-xs text-slate-500">dB</span>
+                        </div>
+                    </div>
+                    <input type="range" id="threshold-slider" min="30" max="100" value="70" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+            </div>
+
+            <!-- 下：控制面板按鈕 (正常模式顯示) -->
+            <div class="normal-only flex flex-col sm:flex-row gap-3">
+                <button id="start-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                    <span id="start-btn-icon">🎤</span> <span id="start-btn-text">啟動麥克風偵測</span>
                 </button>
-                <p class="text-[11px] text-slate-500 text-center">※ 請透過上方按鈕主動觸發授權</p>
+                <button id="simulate-btn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                    🕹️ 開啟模擬測試
+                </button>
+                <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95">
+                    ⏱️ 計時重設
+                </button>
             </div>
 
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col flex-grow shadow-lg min-h-[300px]">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-base font-bold text-slate-200 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                        噪音事件歷史
-                    </h3>
-                    <button id="clearLogBtn" class="text-xs text-slate-500 hover:text-rose-400 transition-colors">清除紀錄</button>
-                </div>
-                
-                <div class="flex-grow overflow-y-auto max-h-[350px] space-y-2 pr-1 no-scrollbar" id="logContainer">
-                    <div id="noLogTip" class="h-full flex flex-col items-center justify-center text-center text-slate-500 py-16">
-                        <span class="text-3xl mb-2">🍀</span>
-                        <p class="text-sm">尚未有任何吵鬧超標事件</p>
-                    </div>
-                </div>
-            </div>
         </div>
-
     </main>
 
-    <!-- 投影專用模式結束懸浮按鈕 -->
-    <button id="exitPresModeBtn" class="fixed top-4 right-4 px-4 py-2 bg-slate-900/90 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-bold rounded-xl z-50 hidden shadow-xl flex items-center gap-1.5 transition-all">
-        退出投影模式 🔙
-    </button>
+    <!-- 頁尾 (正常模式顯示) -->
+    <footer class="normal-only text-center text-xs text-slate-500">
+        智慧課堂工具系列 • 可愛小貓咪版本
+    </footer>
 
-    <!-- 自訂模擬 Alert 視窗 -->
-    <div id="customModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300" id="modalBox">
-            <h4 class="text-lg font-bold text-slate-100 mb-2 flex items-center gap-2">
-                <span id="modalIcon">📢</span>
-                <span id="modalTitle">標題</span>
-            </h4>
-            <p id="modalContent" class="text-sm text-slate-400 mb-6 leading-relaxed">內文</p>
-            <button id="modalCloseBtn" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-lg shadow-rose-600/10">
-                確認
-            </button>
+    <!-- 模擬控制面板 -->
+    <div id="simulation-panel" class="hidden fixed bottom-6 right-6 bg-slate-800 border-2 border-amber-500 p-4 rounded-xl shadow-2xl z-40 max-w-xs w-full">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-bold text-amber-400">🕹️ 模擬環境音量測試</span>
+            <button onclick="toggleSimulation(false)" class="text-slate-400 hover:text-white text-xs">✕ 關閉</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">手動滑動以測試小貓表情與計時功能。</p>
+        <input type="range" id="sim-volume-slider" min="30" max="100" value="45" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+        <div class="flex justify-between text-xs font-mono text-slate-300 mt-1">
+            <span>當前模擬：</span>
+            <span id="sim-volume-val">45 dB</span>
         </div>
     </div>
 
-    <!-- 頁尾 -->
-    <footer id="mainFooter" class="border-t border-slate-900/60 bg-slate-950 py-4 text-center text-xs text-slate-600 transition-all duration-300">
-        <p>教學輔助專用工具 &copy; 2026. 綠色與紅色背景交替示意教室秩序狀態。</p>
-    </footer>
+    <!-- 自訂提示 Modal -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 max-w-md w-full rounded-2xl p-6 shadow-2xl">
+            <div class="flex items-center gap-3 text-rose-500 mb-4">
+                <span class="text-3xl">⚠️</span>
+                <h3 class="text-xl font-extrabold" id="modal-title">無法取得麥克風權限</h3>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed mb-6" id="modal-message">
+                瀏覽器拒絕了麥克風存取權限。
+            </p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal('alert-modal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
 
+    <!-- 權限與使用指南 Modal -->
+    <div id="guide-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 max-w-xl w-full rounded-2xl p-6 shadow-2xl my-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-extrabold text-blue-400 flex items-center gap-2">🐱 萌貓秩序計時器指南</h3>
+                <button onclick="closeModal('guide-modal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+            </div>
+            
+            <div class="space-y-4 text-slate-300 text-sm leading-relaxed">
+                <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-amber-400 mb-1">🐱 全螢幕沈浸模式 (完美流暢排版)</h4>
+                    <p>點擊右上角的「進入沈浸全螢幕」按鈕，畫面會自動改為左右對稱並排，完全屏除雜訊、放大貓咪與計時器，絕不走位！</p>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-rose-400 mb-1">💤 小貓表情變化</h4>
+                    <p><b>安靜時</b>：小貓咪會閉眼微笑並規律呼吸（💤）；<br><b>吵鬧超標時</b>：小貓咪會驚嚇睜大雙眼並抖動（⚡❗）。</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button onclick="closeModal('guide-modal')" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all">
+                    關閉指南
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS 邏輯代碼 -->
     <script>
-        // --- 核心音訊變數 ---
+        // --- 1. 全螢幕控制 ---
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`無法切換至全螢幕模式: ${err.message}`);
+                });
+                fullscreenBtn.textContent = "⤹ 離開全螢幕";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                fullscreenBtn.textContent = "🖵 進入沈浸全螢幕";
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenBtn.textContent = "🖵 進入沈浸全螢幕";
+            }
+        });
+
+        // --- 2. 時鐘系統 ---
+        const hrHand = document.getElementById('hour-hand');
+        const mnHand = document.getElementById('min-hand');
+        const scHand = document.getElementById('sec-hand');
+        const digiClock = document.getElementById('digital-clock');
+
+        function updateClock() {
+            const now = new Date();
+            const s = now.getSeconds();
+            const m = now.getMinutes();
+            const h = now.getHours();
+
+            if(hrHand && mnHand && scHand) {
+                const sDeg = (s / 60) * 360;
+                const mDeg = ((m / 60) * 360) + ((s / 60) * 6);
+                const hDeg = ((h % 12) / 12) * 360 + ((m / 60) * 30);
+
+                scHand.style.transform = `rotate(${sDeg}deg)`;
+                mnHand.style.transform = `rotate(${mDeg}deg)`;
+                hrHand.style.transform = `rotate(${hDeg}deg)`;
+            }
+
+            if(digiClock) {
+                digiClock.textContent = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- 3. 變數與 DOM 宣告 ---
+        const startBtn = document.getElementById('start-btn');
+        const startBtnIcon = document.getElementById('start-btn-icon');
+        const startBtnText = document.getElementById('start-btn-text');
+        const simulateBtn = document.getElementById('simulate-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const statusBadge = document.getElementById('status-badge');
+        const dbValue = document.getElementById('db-value');
+        const timerDisplay = document.getElementById('timer-display');
+        const volumeBar = document.getElementById('volume-bar');
+        const thresholdSlider = document.getElementById('threshold-slider');
+        const thresholdValue = document.getElementById('threshold-value');
+        const thresholdLine = document.getElementById('threshold-line');
+
+        // 小貓咪動畫元素
+        const catSvgContainer = document.getElementById('cat-svg-container');
+        const catStatusText = document.getElementById('cat-status-text');
+        const catLeftEye = document.getElementById('cat-left-eye');
+        const catRightEye = document.getElementById('cat-right-eye');
+        const catMouth = document.getElementById('cat-mouth');
+        const catZzzz = document.getElementById('cat-zzzz');
+
         let audioContext = null;
         let analyser = null;
         let microphone = null;
         let javascriptNode = null;
-        let streamRef = null;
         let isTracking = false;
-        
-        let threshold = 60;         // 預設 60dB 閥值
-        let gracePeriod = 1.5;      
-        let totalPenaltyTime = 0.0; 
+        let isSimulating = false;
+        let simInterval = null;
 
-        let isNoisy = false;             
-        let noiseStartTime = null;       
-        let currentNoiseDuration = 0.0;  
-        let belowThresholdSince = null;  
+        let threshold = 70;
+        let elapsedTime = 0;
+        let startTime = 0;
+        let timerInterval = null;
+        let isTiming = false;
 
-        let filterActive = true;         
-        let buzzerEnabled = false;       
-        let ttsEnabled = false;          
-        let isCalibrating = false;       
+        const waves = [
+            document.getElementById('wave-1'),
+            document.getElementById('wave-2'),
+            document.getElementById('wave-3'),
+            document.getElementById('wave-4')
+        ];
 
-        // --- DOM 元素 ---
-        const startStopBtn = document.getElementById('startStopBtn');
-        const startBtnText = document.getElementById('startBtnText');
-        const playIcon = document.getElementById('playIcon');
-        const pauseIcon = document.getElementById('pauseIcon');
-        const statusTag = document.getElementById('statusTag');
-        const alarmCard = document.getElementById('alarmCard');
-        const glowBg = document.getElementById('glowBg');
-        const statusLabel = document.getElementById('statusLabel');
-        const statusMessage = document.getElementById('statusMessage');
-        const currentTimer = document.getElementById('currentTimer');
-        const totalTimer = document.getElementById('totalTimer');
-        const resetTotalBtn = document.getElementById('resetTotalBtn');
+        // --- 4. 閥值控制 ---
+        if(thresholdSlider) {
+            thresholdSlider.addEventListener('input', (e) => {
+                threshold = parseInt(e.target.value);
+                thresholdValue.textContent = threshold;
+                const percentage = ((threshold - 30) / (100 - 30)) * 100;
+                thresholdLine.style.left = `${percentage}%`;
+            });
+            thresholdSlider.dispatchEvent(new Event('input'));
+        }
 
-        const volumeBar = document.getElementById('volumeBar');
-        const thresholdInput = document.getElementById('thresholdInput');
-        const thresholdMarker = document.getElementById('thresholdMarker');
-        const thresholdNum = document.getElementById('thresholdNum');
-        const currentVolNum = document.getElementById('currentVolNum');
-        const graceInput = document.getElementById('graceInput');
-        const graceValText = document.getElementById('graceValText');
+        // --- 5. 麥克風音訊偵測 ---
+        if(startBtn) {
+            startBtn.addEventListener('click', () => {
+                if (isSimulating) toggleSimulation(false);
+                if (!isTracking) {
+                    startAudioTracking();
+                } else {
+                    stopAudioTracking();
+                }
+            });
+        }
 
-        const buzzerToggle = document.getElementById('buzzerToggle');
-        const filterToggle = document.getElementById('filterToggle');
-        const ttsToggle = document.getElementById('ttsToggle');
-        const calibrateBtn = document.getElementById('calibrateBtn');
-
-        const logContainer = document.getElementById('logContainer');
-        const noLogTip = document.getElementById('noLogTip');
-        const clearLogBtn = document.getElementById('clearLogBtn');
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const presModeBtn = document.getElementById('presModeBtn');
-        const exitPresModeBtn = document.getElementById('exitPresModeBtn');
-
-        const mainHeader = document.getElementById('mainHeader');
-        const mainFooter = document.getElementById('mainFooter');
-        const dashboardCol = document.getElementById('dashboardCol');
-        const rightControlCol = document.getElementById('rightControlCol');
-        const settingsCard = document.getElementById('settingsCard');
-        const switchesCard = document.getElementById('switchesCard');
-
-        // 小河狸 DOM
-        const beaverSvg = document.getElementById('beaverSvg');
-        const eyesSleeping = document.getElementById('eyesSleeping');
-        const eyesAwake = document.getElementById('eyesAwake');
-        const zzzBubble = document.getElementById('zzzBubble');
-        const alertIcon = document.getElementById('alertIcon');
-
-        // --- 您指定的初始化音訊邏輯 ---
-        async function initAudio() {
+        async function startAudioTracking() {
             try {
-                // 由按鈕主動觸發喚起原生麥克風詢問視窗
-                streamRef = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("此瀏覽器不支援或封鎖了安全音訊請求。");
+                }
+
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
-                microphone = audioContext.createMediaStreamSource(streamRef);
+                microphone = audioContext.createMediaStreamSource(stream);
                 
                 analyser.fftSize = 256;
                 microphone.connect(analyser);
@@ -433,386 +579,221 @@
 
                 javascriptNode.onaudioprocess = () => {
                     if (!isTracking) return;
-
                     const array = new Uint8Array(analyser.frequencyBinCount);
                     analyser.getByteFrequencyData(array);
                     
-                    let values = 0;
-                    const length = array.length;
-                    for (let i = 0; i < length; i++) {
-                        values += array[i];
-                    }
-                    const average = values / length;
-                    
-                    // 將 0-255 轉換為類似分貝的數值 (30dB - 100dB 之間)
+                    let sum = 0;
+                    for (let i = 0; i < array.length; i++) { sum += array[i]; }
+                    const average = sum / array.length;
                     const currentDb = Math.round((average / 255) * 70 + 30);
-                    
-                    handleVolumeBusiness(currentDb);
+                    processVolumeData(currentDb);
                 };
 
                 isTracking = true;
-
-                startBtnText.textContent = '停止監測系統';
-                playIcon.classList.add('hidden');
-                pauseIcon.classList.remove('hidden');
-                startStopBtn.classList.remove('from-rose-600', 'to-amber-600', 'hover:from-rose-500', 'hover:to-amber-500');
-                startStopBtn.classList.add('from-slate-800', 'to-slate-700', 'hover:from-slate-700', 'hover:to-slate-600');
-
-                statusTag.innerHTML = `
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block absolute"></span>
-                    &nbsp;&nbsp;監測中
-                `;
-                statusTag.classList.remove('bg-slate-850', 'text-slate-400');
-                statusTag.classList.add('bg-emerald-950/80', 'text-emerald-400', 'border-emerald-500/30');
-
-                resetToQuietUI();
+                startBtnText.textContent = "停止偵測";
+                startBtnIcon.textContent = "⏹️";
+                startBtn.className = "flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2";
+                
+                statusBadge.textContent = "良好";
+                statusBadge.className = "w-full py-2 rounded-xl font-bold text-base bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-center";
 
             } catch (err) {
-                console.error('無法取得麥克風權限：', err);
-                statusTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span> 權限遭拒`;
-                showCustomAlert(
-                    "無法喚醒麥克風權限 🎙️",
-                    `權限請求失敗 (${err.message})。\n\n請注意：\n1. 若您直接雙擊 HTML 檔案開檔 (file:// 協定)，瀏覽器會基於安全考量封鎖麥克風。\n2. 請在本地伺服器環境 (如 Live Server) 或 HTTPS 下執行。\n3. 請確認網址列點選「允許」麥克風。`,
-                    "⚠️"
-                );
+                console.error(err);
+                let customMsg = "無法存取您的麥克風。";
+                if (window.location.protocol === 'file:') {
+                    customMsg += "<br><br><b>提示：</b>您目前是雙擊打開本地 HTML 檔案。若無法啟動，請嘗試使用 Firefox，或使用右下角的<b>模擬測試功能</b>！";
+                }
+                showCustomModal("麥克風存取失敗", customMsg);
             }
         }
 
-        // 停止偵測
-        function stopAudio() {
+        function stopAudioTracking() {
             isTracking = false;
+            if(startBtnText) startBtnText.textContent = "啟動麥克風偵測";
+            if(startBtnIcon) startBtnIcon.textContent = "🎤";
+            if(startBtn) startBtn.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2";
             
             if (javascriptNode) {
-                javascriptNode.disconnect();
                 javascriptNode.onaudioprocess = null;
                 javascriptNode = null;
             }
-            if (analyser) {
-                analyser.disconnect();
-                analyser = null;
-            }
-            if (microphone) {
-                microphone.disconnect();
-                microphone = null;
-            }
-            if (streamRef) {
-                streamRef.getTracks().forEach(track => track.stop());
-                streamRef = null;
-            }
-            if (audioContext && audioContext.state !== 'closed') {
+            if (audioContext) {
                 audioContext.close();
                 audioContext = null;
             }
-
-            if (isNoisy) resolveNoiseIncident();
-
-            volumeBar.style.width = `0%`;
-            currentVolNum.innerText = `30 dB`;
-
-            startBtnText.textContent = '啟動音量監測系統';
-            playIcon.classList.remove('hidden');
-            pauseIcon.classList.add('hidden');
-            startStopBtn.classList.remove('from-slate-800', 'to-slate-700', 'hover:from-slate-700', 'hover:to-slate-600');
-            startStopBtn.classList.add('from-rose-600', 'to-amber-600', 'hover:from-rose-500', 'hover:to-amber-500');
-
-            statusTag.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> 未啟動監測`;
-            statusTag.classList.remove('bg-emerald-950/80', 'text-emerald-400', 'border-emerald-500/30');
-            statusTag.classList.add('bg-slate-850', 'text-slate-400');
-
-            resetToQuietUI();
+            
+            stopTimer();
+            resetVisuals();
         }
 
-        // 開關主按鈕點擊
-        startStopBtn.addEventListener('click', async () => {
-            if (!isTracking) {
-                await initAudio();
+        // --- 6. 模擬測試模式 ---
+        const simPanel = document.getElementById('simulation-panel');
+        const simSlider = document.getElementById('sim-volume-slider');
+        const simVal = document.getElementById('sim-volume-val');
+
+        if(simulateBtn) {
+            simulateBtn.addEventListener('click', () => { toggleSimulation(true); });
+        }
+
+        function toggleSimulation(on) {
+            if (on) {
+                if (isTracking) stopAudioTracking();
+                isSimulating = true;
+                simPanel.classList.remove('hidden');
+                if(statusBadge) {
+                    statusBadge.textContent = "模擬運行中";
+                    statusBadge.className = "w-full py-2 rounded-xl font-bold text-base bg-amber-500/20 text-amber-400 border border-amber-500/40 text-center";
+                }
+
+                if (simInterval) clearInterval(simInterval);
+                simInterval = setInterval(() => {
+                    const base = parseInt(simSlider.value);
+                    const jitter = Math.floor(Math.random() * 5) - 2;
+                    const finalVal = Math.max(30, Math.min(100, base + jitter));
+                    simVal.textContent = `${finalVal} dB`;
+                    processVolumeData(finalVal);
+                }, 150);
             } else {
-                stopAudio();
+                isSimulating = false;
+                simPanel.classList.add('hidden');
+                if (simInterval) { clearInterval(simInterval); simInterval = null; }
+                stopTimer();
+                resetVisuals();
             }
-        });
+        }
 
-        // --- 處理當前音量分貝業務 ---
-        function handleVolumeBusiness(currentDb) {
-            let percentage = ((currentDb - 30) / 70) * 100;
-            percentage = Math.min(Math.max(percentage, 0), 100);
+        // --- 7. 核心數據處理：更新 UI、小貓咪表情切換與計時 ---
+        function processVolumeData(db) {
+            if(dbValue) dbValue.textContent = db;
 
-            volumeBar.style.width = `${percentage}%`;
-            currentVolNum.innerText = `${currentDb} dB`;
-
-            const rightNow = Date.now();
-
-            if (currentDb > threshold) {
-                belowThresholdSince = null; 
-
-                if (!isNoisy) {
-                    if (filterActive) {
-                        if (!noiseStartTime) {
-                            noiseStartTime = rightNow;
-                        } else if (rightNow - noiseStartTime > 250) {
-                            isNoisy = true;
-                            setNoisyUI();
-                            playBeep();
-                        }
-                    } else {
-                        isNoisy = true;
-                        noiseStartTime = rightNow;
-                        setNoisyUI();
-                        playBeep();
-                    }
-                } else {
-                    currentNoiseDuration = (rightNow - noiseStartTime) / 1000;
-                    currentTimer.innerText = `${currentNoiseDuration.toFixed(1)}s`;
+            waves.forEach((wave) => {
+                if(wave) {
+                    const randomHeight = Math.max(4, Math.min(32, (db / 100) * 32 + (Math.random() * 8 - 4)));
+                    wave.style.height = `${randomHeight}px`;
                 }
+            });
+
+            const barPct = Math.max(0, Math.min(100, ((db - 30) / (100 - 30)) * 100));
+            if(volumeBar) volumeBar.style.width = `${barPct%}`;
+
+            if (db >= threshold) {
+                // 超過閥值：小貓被吵醒！(驚嚇圓眼 + 張嘴 + 抖動)
+                if(dbValue) dbValue.className = "text-5xl font-extrabold font-mono text-rose-500 transition-colors duration-150";
+                if(statusBadge) {
+                    statusBadge.textContent = "🔴 吵鬧中！";
+                    statusBadge.className = "w-full py-2 rounded-xl font-bold text-base bg-rose-500 text-white shadow-lg shadow-rose-500/20 text-center animate-pulse";
+                }
+                
+                // 小貓吵鬧驚醒表情
+                if(catSvgContainer) {
+                    catSvgContainer.className = "cat-awake transition-all duration-300 flex items-center justify-center";
+                }
+                if(catLeftEye) catLeftEye.setAttribute("d", "M 42 58 A 6 6 0 0 1 54 58 A 6 6 0 0 1 42 58"); // 圓眼
+                if(catRightEye) catRightEye.setAttribute("d", "M 66 58 A 6 6 0 0 1 78 58 A 6 6 0 0 1 66 58");
+                if(catMouth) catMouth.setAttribute("d", "M 54 78 A 6 6 0 0 0 66 78 A 6 6 0 0 0 54 78"); // 張大嘴
+                if(catZzzz) catZzzz.textContent = "⚡ ! !";
+                if(catStatusText) {
+                    catStatusText.textContent = "小貓被吵醒了！好吵啊！";
+                    catStatusText.className = "text-xs font-bold text-rose-400 mt-1 transition-all";
+                }
+
+                startTimer();
             } else {
-                if (isNoisy) {
-                    if (!belowThresholdSince) belowThresholdSince = rightNow;
-                    const secondsSilent = (rightNow - belowThresholdSince) / 1000;
-
-                    if (secondsSilent >= gracePeriod) {
-                        resolveNoiseIncident();
-                    } else {
-                        currentNoiseDuration = (rightNow - noiseStartTime) / 1000;
-                        currentTimer.innerText = `${currentNoiseDuration.toFixed(1)}s`;
-                    }
-                } else {
-                    noiseStartTime = null;
+                // 良好：小貓安心睡覺 (閉眼微笑 ^_^ + Zzz)
+                if(dbValue) dbValue.className = "text-5xl font-extrabold font-mono text-emerald-400 transition-colors duration-150";
+                if(statusBadge) {
+                    statusBadge.textContent = isSimulating ? "🟡 良好 (模擬)" : "🟢 良好";
+                    statusBadge.className = isSimulating 
+                        ? "w-full py-2 rounded-xl font-bold text-base bg-amber-500/20 text-amber-400 border border-amber-500/40 text-center"
+                        : "w-full py-2 rounded-xl font-bold text-base bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-center";
                 }
-            }
-        }
-
-        // --- 結算違規 ---
-        function resolveNoiseIncident() {
-            let actualScoldSecs = noiseStartTime && belowThresholdSince ? (belowThresholdSince - noiseStartTime) / 1000 : currentNoiseDuration;
-            if (actualScoldSecs < 0.1) actualScoldSecs = 0;
-
-            totalPenaltyTime += parseFloat(actualScoldSecs.toFixed(1));
-            totalTimer.innerText = totalPenaltyTime.toFixed(1);
-
-            pushToLog(actualScoldSecs, totalPenaltyTime);
-
-            if (actualScoldSecs >= 0.5) {
-                triggerVoiceBroadcast(actualScoldSecs, totalPenaltyTime);
-            }
-
-            isNoisy = false;
-            noiseStartTime = null;
-            belowThresholdSince = null;
-            currentNoiseDuration = 0.0;
-            currentTimer.innerText = "0.0s";
-
-            resetToQuietUI();
-        }
-
-        // --- 小河狸與狀態切換 UI ---
-        function setNoisyUI() {
-            alarmCard.classList.remove('from-emerald-950/20', 'border-emerald-500/20');
-            alarmCard.classList.add('animate-pulse-red');
-            glowBg.classList.remove('bg-emerald-500/5');
-            glowBg.classList.add('bg-rose-500/20');
-
-            statusLabel.innerText = "🚨 教室分貝超標中！";
-            statusLabel.classList.remove('text-emerald-400');
-            statusLabel.classList.add('text-rose-400');
-            statusMessage.innerText = "小河狸被吵醒了！計時懲罰！";
-            statusMessage.classList.remove('text-emerald-300');
-            statusMessage.classList.add('text-rose-300');
-
-            // 🦫 河狸切換至驚醒抖動模式
-            beaverSvg.classList.add('scared-shake');
-            eyesSleeping.classList.add('hidden');
-            eyesAwake.classList.remove('hidden');
-            zzzBubble.classList.add('hidden');
-            alertIcon.classList.remove('hidden');
-        }
-
-        function resetToQuietUI() {
-            alarmCard.classList.remove('animate-pulse-red');
-            alarmCard.classList.add('from-emerald-950/20', 'border-emerald-500/20');
-            glowBg.classList.remove('bg-rose-500/20');
-            glowBg.classList.add('bg-emerald-500/5');
-
-            statusLabel.innerText = "當前課堂狀態";
-            statusLabel.classList.remove('text-rose-400');
-            statusLabel.classList.add('text-emerald-400');
-            statusMessage.innerText = isTracking ? "小河狸安穩睡覺中..." : "監測尚未開啟";
-            statusMessage.classList.remove('text-rose-300');
-            statusMessage.classList.add('text-emerald-300');
-
-            // 🦫 河狸切換回安靜睡覺模式
-            beaverSvg.classList.remove('scared-shake');
-            eyesSleeping.classList.remove('hidden');
-            eyesAwake.classList.add('hidden');
-            zzzBubble.classList.remove('hidden');
-            alertIcon.classList.add('hidden');
-        }
-
-        function pushToLog(scoldSecs, curTotal) {
-            if (scoldSecs <= 0.1) return;
-            if (noLogTip) noLogTip.classList.add('hidden');
-
-            const date = new Date();
-            const timeTag = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
-
-            const logEl = document.createElement('div');
-            logEl.className = "flex items-center justify-between p-3 bg-slate-950/60 border border-slate-800 rounded-xl hover:border-slate-700 transition-colors text-xs";
-            logEl.innerHTML = `
-                <div class="flex items-center gap-2">
-                    <span class="text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded font-mono">${timeTag}</span>
-                    <span class="text-slate-300">吵鬧持續 <strong class="text-rose-400 font-mono text-sm">${scoldSecs.toFixed(1)}</strong> 秒</span>
-                </div>
-                <div class="text-slate-400">累計懲罰: <strong class="text-white font-mono text-sm">${curTotal.toFixed(1)}</strong> 秒</div>
-            `;
-            logContainer.insertBefore(logEl, logContainer.firstChild);
-        }
-
-        // --- 自動校準環境音 ---
-        calibrateBtn.addEventListener('click', async () => {
-            if (isCalibrating) return;
-
-            if (!isTracking) {
-                await initAudio();
-                if (!isTracking) return;
-            }
-
-            isCalibrating = true;
-            calibrateBtn.disabled = true;
-            calibrateBtn.innerText = "正在聆聽教室環境底噪 (3s)... 🤫";
-            calibrateBtn.classList.remove('from-amber-500', 'to-orange-500');
-            calibrateBtn.classList.add('from-slate-800', 'to-slate-700', 'text-slate-400');
-
-            let recordedDbs = [];
-
-            const captureInterval = setInterval(() => {
-                let textDb = currentVolNum.innerText.replace(' dB', '');
-                let parsedDb = parseInt(textDb) || 30;
-                recordedDbs.push(parsedDb);
-            }, 100);
-
-            setTimeout(() => {
-                clearInterval(captureInterval);
-                if (recordedDbs.length > 0) {
-                    let maxDb = Math.max(...recordedDbs);
-                    let avgDb = recordedDbs.reduce((a, b) => a + b, 0) / recordedDbs.length;
-                    
-                    let suggestedThreshold = Math.round(Math.max(maxDb + 6, avgDb + 12));
-                    suggestedThreshold = Math.min(Math.max(suggestedThreshold, 35), 95);
-                    
-                    threshold = suggestedThreshold;
-                    thresholdInput.value = threshold;
-                    thresholdNum.innerText = `${threshold} dB`;
-
-                    let markerPercent = ((threshold - 30) / 70) * 100;
-                    thresholdMarker.style.left = `${markerPercent}%`;
-
-                    showCustomAlert("自動校準完成 ✨", `已依據環境音量將警報閥值設定在 【${threshold} dB】。`, "🛡️");
+                
+                // 小貓睡覺表情
+                if(catSvgContainer) {
+                    catSvgContainer.className = "cat-sleep transition-all duration-300 flex items-center justify-center";
+                }
+                if(catLeftEye) catLeftEye.setAttribute("d", "M 42 62 Q 48 55 54 62"); // 閉眼微笑
+                if(catRightEye) catRightEye.setAttribute("d", "M 66 62 Q 72 55 78 62");
+                if(catMouth) catMouth.setAttribute("d", "M 54 78 Q 57 82 60 78 Q 63 82 66 78");
+                if(catZzzz) catZzzz.textContent = "z Z";
+                if(catStatusText) {
+                    catStatusText.textContent = "小貓正在安靜睡覺...";
+                    catStatusText.className = "text-xs font-bold text-emerald-400 mt-1 transition-all";
                 }
 
-                isCalibrating = false;
-                calibrateBtn.disabled = false;
-                calibrateBtn.innerText = "⚡ 自動偵測並校準環境音 (3秒)";
-                calibrateBtn.classList.remove('from-slate-800', 'to-slate-700', 'text-slate-400');
-                calibrateBtn.classList.add('from-amber-500', 'to-orange-500');
-            }, 3000);
-        });
-
-        // --- 控制器事件綁定 ---
-        thresholdInput.addEventListener('input', (e) => {
-            threshold = parseInt(e.target.value);
-            thresholdNum.innerText = `${threshold} dB`;
-            let markerPercent = ((threshold - 30) / 70) * 100;
-            thresholdMarker.style.left = `${markerPercent}%`;
-        });
-
-        graceInput.addEventListener('input', (e) => {
-            gracePeriod = parseFloat(e.target.value) / 10;
-            graceValText.innerText = `${gracePeriod.toFixed(1)} 秒`;
-        });
-
-        resetTotalBtn.addEventListener('click', () => {
-            totalPenaltyTime = 0.0;
-            totalTimer.innerText = "0.0";
-            currentTimer.innerText = "0.0s";
-            isNoisy = false;
-            noiseStartTime = null;
-            belowThresholdSince = null;
-            currentNoiseDuration = 0.0;
-            resetToQuietUI();
-        });
-
-        clearLogBtn.addEventListener('click', () => {
-            logContainer.innerHTML = `
-                <div id="noLogTip" class="h-full flex flex-col items-center justify-center text-center text-slate-500 py-16">
-                    <span class="text-3xl mb-2">🍀</span>
-                    <p class="text-sm">尚未有任何吵鬧超標事件</p>
-                </div>
-            `;
-        });
-
-        function showCustomAlert(title, text, icon = '📢') {
-            modalTitle.innerText = title;
-            modalContent.innerText = text;
-            modalIcon.innerText = icon;
-            customModal.classList.remove('hidden');
-            setTimeout(() => {
-                customModal.classList.remove('opacity-0');
-                modalBox.classList.remove('scale-95');
-            }, 10);
-        }
-        modalCloseBtn.addEventListener('click', () => {
-            customModal.classList.add('opacity-0');
-            modalBox.classList.add('scale-95');
-            setTimeout(() => customModal.classList.add('hidden'), 300);
-        });
-
-        function playBeep() {
-            if (!audioContext || !buzzerEnabled) return;
-            try {
-                const osc = audioContext.createOscillator();
-                const gain = audioContext.createGain();
-                osc.connect(gain); gain.connect(audioContext.destination);
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(800, audioContext.currentTime); 
-                gain.gain.setValueAtTime(0.06, audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3); 
-                osc.start(); osc.stop(audioContext.currentTime + 0.3);
-            } catch (err) {}
+                stopTimer();
+            }
         }
 
-        function triggerVoiceBroadcast(duration, total) {
-            if (!ttsEnabled || !('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel(); 
-            const speechText = `注意，剛才安靜度不足持續${duration.toFixed(0)}秒。目前已經累計拖延下課${total.toFixed(0)}秒。請保持安靜。`;
-            const utterance = new SpeechSynthesisUtterance(speechText);
-            utterance.lang = 'zh-TW'; utterance.rate = 1.15;
-            window.speechSynthesis.speak(utterance);
+        function resetVisuals() {
+            if(dbValue) {
+                dbValue.textContent = "30";
+                dbValue.className = "text-5xl font-extrabold font-mono text-slate-500";
+            }
+            if(volumeBar) volumeBar.style.width = "0%";
+            if(statusBadge) {
+                statusBadge.textContent = "等待開始";
+                statusBadge.className = "w-full py-2 rounded-xl font-bold text-base bg-slate-700 text-slate-300 text-center";
+            }
+            if(catSvgContainer) catSvgContainer.className = "cat-sleep transition-all duration-300 flex items-center justify-center";
+            if(catLeftEye) catLeftEye.setAttribute("d", "M 42 62 Q 48 55 54 62");
+            if(catRightEye) catRightEye.setAttribute("d", "M 66 62 Q 72 55 78 62");
+            if(catMouth) catMouth.setAttribute("d", "M 54 78 Q 57 82 60 78 Q 63 82 66 78");
+            if(catZzzz) catZzzz.textContent = "z Z";
+            if(catStatusText) {
+                catStatusText.textContent = "小貓正在安靜睡覺...";
+                catStatusText.className = "text-xs font-bold text-emerald-400 mt-1 transition-all";
+            }
+            waves.forEach(wave => { if(wave) wave.style.height = '8px'; });
         }
 
-        buzzerToggle.addEventListener('change', (e) => buzzerEnabled = e.target.checked);
-        filterToggle.addEventListener('change', (e) => filterActive = e.target.checked);
-        ttsToggle.addEventListener('change', (e) => ttsEnabled = e.target.checked);
+        // --- 8. 秩序累計計時器邏輯 ---
+        function startTimer() {
+            if (!isTiming) {
+                isTiming = true;
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(() => {
+                    elapsedTime = Date.now() - startTime;
+                    updateTimerDisplay(elapsedTime);
+                }, 100);
+            }
+        }
 
-        fullscreenBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-            else document.exitFullscreen();
-        });
+        function stopTimer() {
+            if (isTiming) {
+                isTiming = false;
+                clearInterval(timerInterval);
+            }
+        }
 
-        presModeBtn.addEventListener('click', () => {
-            mainHeader.classList.add('hidden'); mainFooter.classList.add('hidden');
-            settingsCard.classList.add('hidden'); switchesCard.classList.add('hidden'); rightControlCol.classList.add('hidden');
-            dashboardCol.classList.remove('lg:col-span-2'); dashboardCol.classList.add('lg:col-span-3');
-            totalTimer.classList.remove('text-7xl', 'sm:text-8xl'); totalTimer.classList.add('text-9xl', 'sm:text-[12rem]');
-            exitPresModeBtn.classList.remove('hidden');
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
-        });
+        function updateTimerDisplay(ms) {
+            const totalSeconds = ms / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const tenths = Math.floor((ms % 1000) / 100);
 
-        exitPresModeBtn.addEventListener('click', () => {
-            mainHeader.classList.remove('hidden'); mainFooter.classList.remove('hidden');
-            settingsCard.classList.remove('hidden'); switchesCard.classList.remove('hidden'); rightControlCol.classList.remove('hidden');
-            dashboardCol.classList.add('lg:col-span-2'); dashboardCol.classList.remove('lg:col-span-3');
-            totalTimer.classList.add('text-7xl', 'sm:text-8xl'); totalTimer.classList.remove('text-9xl', 'sm:text-[12rem]');
-            exitPresModeBtn.classList.add('hidden');
-            if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        });
+            const mStr = String(minutes).padStart(2, '0');
+            const sStr = String(seconds).padStart(2, '0');
+
+            if(timerDisplay) timerDisplay.textContent = `${mStr}:${sStr}.${tenths}`;
+        }
+
+        if(resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                stopTimer();
+                elapsedTime = 0;
+                updateTimerDisplay(0);
+            });
+        }
+
+        // --- 9. Modal 控制 ---
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function showCustomModal(title, htmlMessage) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').innerHTML = htmlMessage;
+            openModal('alert-modal');
+        }
     </script>
 </body>
 </html>
