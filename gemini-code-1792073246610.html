@@ -1,0 +1,564 @@
+:課堂秩序分貝計時器:index.html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧課堂秩序分貝計時器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自訂指針旋轉中心 */
+        .clock-hand {
+            transform-origin: bottom center;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 md:p-8 font-sans">
+
+    <!-- 頁首與功能指南 -->
+    <header class="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                🔊 智慧課堂秩序分貝計時器
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">即時監測教室音量，自動累計超標吵鬧時間</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="openModal('guide-modal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border border-slate-700">
+                ❓ 權限與使用指南
+            </button>
+        </div>
+    </header>
+
+    <!-- 主儀表板區域 -->
+    <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-8">
+        
+        <!-- 左側：時鐘與目前狀態 (4/12 寬) -->
+        <div class="lg:col-span-4 bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-slate-700 flex flex-col justify-between items-center text-center shadow-xl min-h-[350px]">
+            <h2 class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">課堂即時時間</h2>
+            
+            <!-- 模擬時鐘 SVG -->
+            <div class="relative w-36 h-36 my-2">
+                <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <!-- 鐘面外框 -->
+                    <circle cx="50" cy="50" r="45" class="fill-slate-950 stroke-slate-700" stroke-width="4"/>
+                    <!-- 刻度 -->
+                    <line x1="50" y1="8" x2="50" y2="12" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="50" y1="92" x2="50" y2="88" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="8" y1="50" x2="12" y2="50" class="stroke-slate-500" stroke-width="2"/>
+                    <line x1="92" y1="50" x2="88" y2="50" class="stroke-slate-500" stroke-width="2"/>
+                    <!-- 時針 -->
+                    <line id="hour-hand" x1="50" y1="50" x2="50" y2="28" class="stroke-slate-100 clock-hand" stroke-width="3" stroke-linecap="round"/>
+                    <!-- 分針 -->
+                    <line id="min-hand" x1="50" y1="50" x2="50" y2="18" class="stroke-slate-300 clock-hand" stroke-width="2" stroke-linecap="round"/>
+                    <!-- 秒針 -->
+                    <line id="sec-hand" x1="50" y1="50" x2="50" y2="14" class="stroke-rose-500 clock-hand" stroke-width="1" stroke-linecap="round"/>
+                    <!-- 軸心 -->
+                    <circle cx="50" cy="50" r="2.5" class="fill-rose-500"/>
+                </svg>
+            </div>
+            
+            <!-- 數字時鐘 -->
+            <div id="digital-clock" class="text-2xl font-bold tracking-widest text-slate-100 font-mono mb-4">00:00:00</div>
+            
+            <!-- 目前秩序狀態指示器 -->
+            <div class="w-full">
+                <div id="status-badge" class="w-full py-3 rounded-xl font-bold text-lg bg-slate-700 text-slate-300 transition-all duration-300">
+                    等待開始
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間與右側：分貝計與計時器 (8/12 寬) -->
+        <div class="lg:col-span-8 bg-slate-800/80 backdrop-blur rounded-2xl p-6 border border-slate-700 flex flex-col justify-between shadow-xl">
+            
+            <!-- 上半：數據顯示區 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- 目前分貝 -->
+                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-between relative overflow-hidden">
+                    <span class="text-xs text-slate-400 font-bold">目前教室音量</span>
+                    <div class="flex items-baseline gap-1 my-2">
+                        <span id="db-value" class="text-5xl font-extrabold font-mono text-emerald-400 transition-colors duration-150">30</span>
+                        <span class="text-lg text-slate-500">dB</span>
+                    </div>
+                    <!-- 簡易小波形圖飾 -->
+                    <div class="absolute bottom-2 right-4 flex items-end gap-1 h-8 opacity-40">
+                        <div class="w-1 bg-emerald-400 h-2 rounded-full transition-all duration-150" id="wave-1"></div>
+                        <div class="w-1 bg-emerald-400 h-4 rounded-full transition-all duration-150" id="wave-2"></div>
+                        <div class="w-1 bg-emerald-400 h-6 rounded-full transition-all duration-150" id="wave-3"></div>
+                        <div class="w-1 bg-emerald-400 h-3 rounded-full transition-all duration-150" id="wave-4"></div>
+                    </div>
+                </div>
+
+                <!-- 累計吵鬧時間 -->
+                <div class="bg-slate-950/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-between">
+                    <span class="text-xs text-slate-400 font-bold">吵鬧累積時間 (超過閥值)</span>
+                    <div id="timer-display" class="text-5xl font-extrabold font-mono text-rose-500 my-2 tracking-wider">
+                        00:00.0
+                    </div>
+                    <span class="text-xs text-slate-500">當前分貝大於設定閥值時將自動累加計時</span>
+                </div>
+            </div>
+
+            <!-- 中：分貝計量條與滑桿 -->
+            <div class="space-y-6 mb-6">
+                <!-- 視覺化分貝槽 -->
+                <div>
+                    <div class="flex justify-between text-xs text-slate-400 mb-2">
+                        <span>💡 安靜 (30 dB)</span>
+                        <span>🗣️ 正常交談 (65 dB)</span>
+                        <span>📢 吵鬧 (90+ dB)</span>
+                    </div>
+                    <div class="relative h-8 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner flex items-center">
+                        <!-- 閥值紅線指示器 -->
+                        <div id="threshold-line" class="absolute top-0 bottom-0 w-1 bg-rose-500 z-10 shadow-[0_0_8px_#f43f5e] transition-all duration-150" style="left: 57%;"></div>
+                        <!-- 動態進度條 -->
+                        <div id="volume-bar" class="h-full w-0 bg-gradient-to-r from-emerald-500 via-yellow-500 to-rose-500 transition-all duration-75" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- 閥值調整滑動條 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-slate-300">🔊 設定觸發計時閥值：</span>
+                        <div class="bg-slate-950 px-3 py-1 rounded-lg border border-slate-700">
+                            <span id="threshold-value" class="text-lg font-mono font-bold text-amber-400">70</span>
+                            <span class="text-xs text-slate-500">dB</span>
+                        </div>
+                    </div>
+                    <input type="range" id="threshold-slider" min="30" max="100" value="70" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                    <div class="flex justify-between text-xxs text-slate-500 mt-1">
+                        <span>30 dB (極安靜)</span>
+                        <span>70 dB (建議值)</span>
+                        <span>100 dB (極吵鬧)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下：控制面板按鈕 -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="start-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                    <span id="start-btn-icon">🎤</span> <span id="start-btn-text">啟動麥克風偵測</span>
+                </button>
+                <button id="simulate-btn" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2">
+                    🕹️ 開啟模擬測試
+                </button>
+                <button id="reset-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95">
+                    ⏱️ 計時重設
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="text-center text-xs text-slate-500">
+        智慧課堂工具系列 • 基於 Web Audio 靜態網頁技術製作
+    </footer>
+
+    <!-- 模擬控制面板 (僅在開啟模擬模式時顯示) -->
+    <div id="simulation-panel" class="hidden fixed bottom-6 right-6 bg-slate-800 border-2 border-amber-500 p-4 rounded-xl shadow-2xl z-40 max-w-xs w-full">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-bold text-amber-400">🕹️ 模擬環境音量測試</span>
+            <button onclick="toggleSimulation(false)" class="text-slate-400 hover:text-white text-xs">✕ 關閉</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-3">若麥克風權限被阻擋，可用此滑桿手動測試計時功能。</p>
+        <input type="range" id="sim-volume-slider" min="30" max="100" value="45" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+        <div class="flex justify-between text-xs font-mono text-slate-300 mt-1">
+            <span>當前模擬：</span>
+            <span id="sim-volume-val">45 dB</span>
+        </div>
+    </div>
+
+    <!-- 自訂提示 Modal -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 max-w-md w-full rounded-2xl p-6 shadow-2xl">
+            <div class="flex items-center gap-3 text-rose-500 mb-4">
+                <span class="text-3xl">⚠️</span>
+                <h3 class="text-xl font-extrabold" id="modal-title">無法取得麥克風權限</h3>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed mb-6" id="modal-message">
+                瀏覽器拒絕了麥克風存取權限。這通常是因為直接雙擊 HTML 檔案所致。
+            </p>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal('alert-modal'); openModal('guide-modal');" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                    閱讀權限排除指南
+                </button>
+                <button onclick="closeModal('alert-modal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 權限與使用指南 Modal -->
+    <div id="guide-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 max-w-xl w-full rounded-2xl p-6 shadow-2xl my-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-extrabold text-blue-400 flex items-center gap-2">🧭 麥克風權限與功能指南</h3>
+                <button onclick="closeModal('guide-modal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+            </div>
+            
+            <div class="space-y-4 text-slate-300 text-sm leading-relaxed overflow-y-auto max-h-[60vh] pr-2">
+                <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-amber-400 mb-1">🔴 為什麼點「啟動」沒有任何反應？</h4>
+                    <p>如果您是直接「雙擊點開」下載下來的 HTML 檔案，網址列會顯示為 <code>file:///...</code>。現代瀏覽器基於資訊安全，會<b>直接禁止</b>任何在地檔案開啟麥克風權限，並且不會彈出詢問視窗。</p>
+                </div>
+
+                <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-emerald-400 mb-1">🛠️ 三個快速解決方案</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-xs">
+                        <li><b>推薦方法一 (最簡單)</b>：使用 <b>Firefox (火狐瀏覽器)</b> 開啟這個檔案，通常能直接成功彈出權限請求！</li>
+                        <li><b>推薦方法二 (手動允許)</b>：觀察網址列左側，點擊「驚嘆號 ⚠️」、「鎖頭 🔒」或「控制滑桿」圖示，手動將麥克風設為「允許」。</li>
+                        <li><b>免硬體測試</b>：點擊右下角「開啟模擬測試」，可以直接用拖動滑桿的方式，模擬教室聲音，測試累積計時功能。</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-blue-400 mb-1">📋 秩序管理教學建議</h4>
+                    <p>1. 在教室安靜時觀察「目前教室音量」落在哪個分貝數（假設為 45dB）。<br>
+                       2. 將閥值滑桿往右調整到 15~20 dB 左右（設為 65dB）。<br>
+                       3. 與學生約定：當計時器跑超過 1 分鐘，可能就要進行秩序調整，能有效將「秩序」視覺化，讓學生學會自主控制音量！</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-6">
+                <button onclick="closeModal('guide-modal')" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all">
+                    關閉指南
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS 邏輯代碼 -->
+    <script>
+        // --- 1. 時鐘系統 ---
+        const hrHand = document.getElementById('hour-hand');
+        const mnHand = document.getElementById('min-hand');
+        const scHand = document.getElementById('sec-hand');
+        const digiClock = document.getElementById('digital-clock');
+
+        function updateClock() {
+            const now = new Date();
+            const s = now.getSeconds();
+            const m = now.getMinutes();
+            const h = now.getHours();
+
+            // 計算旋轉角 (0-360)
+            const sDeg = (s / 60) * 360;
+            const mDeg = ((m / 60) * 360) + ((s / 60) * 6);
+            const hDeg = ((h % 12) / 12) * 360 + ((m / 60) * 30);
+
+            scHand.style.transform = `rotate(${sDeg}deg)`;
+            mnHand.style.transform = `rotate(${mDeg}deg)`;
+            hrHand.style.transform = `rotate(${hDeg}deg)`;
+
+            digiClock.textContent = 
+                `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock(); // 初始化時鐘
+
+        // --- 2. 變數與 DOM 宣告 ---
+        const startBtn = document.getElementById('start-btn');
+        const startBtnIcon = document.getElementById('start-btn-icon');
+        const startBtnText = document.getElementById('start-btn-text');
+        const simulateBtn = document.getElementById('simulate-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const statusBadge = document.getElementById('status-badge');
+        const dbValue = document.getElementById('db-value');
+        const timerDisplay = document.getElementById('timer-display');
+        const volumeBar = document.getElementById('volume-bar');
+        const thresholdSlider = document.getElementById('threshold-slider');
+        const thresholdValue = document.getElementById('threshold-value');
+        const thresholdLine = document.getElementById('threshold-line');
+
+        // 音訊與模擬
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let javascriptNode = null;
+        let isTracking = false;
+        let isSimulating = false;
+        let simInterval = null;
+
+        // 計時器狀態
+        let threshold = 70;
+        let elapsedTime = 0; // 毫秒
+        let startTime = 0;
+        let timerInterval = null;
+        let isTiming = false;
+
+        // 波形裝飾
+        const waves = [
+            document.getElementById('wave-1'),
+            document.getElementById('wave-2'),
+            document.getElementById('wave-3'),
+            document.getElementById('wave-4')
+        ];
+
+        // --- 3. 閥值控制 ---
+        thresholdSlider.addEventListener('input', (e) => {
+            threshold = parseInt(e.target.value);
+            thresholdValue.textContent = threshold;
+            // 更新紅線位置 (30 到 100 區間比例)
+            const percentage = ((threshold - 30) / (100 - 30)) * 100;
+            thresholdLine.style.left = `${percentage}%`;
+        });
+        // 初始觸發一次以定位紅線
+        thresholdSlider.dispatchEvent(new Event('input'));
+
+        // --- 4. 麥克風音訊偵測 ---
+        startBtn.addEventListener('click', () => {
+            if (isSimulating) {
+                toggleSimulation(false); // 關閉模擬以啟用真實麥克風
+            }
+            
+            if (!isTracking) {
+                startAudioTracking();
+            } else {
+                stopAudioTracking();
+            }
+        });
+
+        async function startAudioTracking() {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("此瀏覽器不支援或封鎖了安全音訊請求。");
+                }
+
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                
+                analyser.fftSize = 256;
+                microphone.connect(analyser);
+
+                // 處理節點以讀取音量數據
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination);
+
+                javascriptNode.onaudioprocess = () => {
+                    if (!isTracking) return;
+                    const array = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(array);
+                    
+                    let sum = 0;
+                    for (let i = 0; i < array.length; i++) {
+                        sum += array[i];
+                    }
+                    const average = sum / array.length;
+                    
+                    // 映射 0-255 至 30dB - 100dB 的範圍
+                    const currentDb = Math.round((average / 255) * 70 + 30);
+                    processVolumeData(currentDb);
+                };
+
+                isTracking = true;
+                startBtnText.textContent = "停止偵測";
+                startBtnIcon.textContent = "⏹️";
+                startBtn.className = "flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2";
+                
+                statusBadge.textContent = "良好";
+                statusBadge.className = "w-full py-3 rounded-xl font-bold text-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-center";
+
+            } catch (err) {
+                console.error(err);
+                let customMsg = "無法存取您的麥克風。";
+                if (window.location.protocol === 'file:') {
+                    customMsg += "<br><br><b>偵測到本地開啟：</b>您目前是雙擊打開本地 HTML 檔案，瀏覽器會安全性鎖定。請改用 Firefox 瀏覽器，或者在右下方開啟<b>模擬測試功能</b>！";
+                } else {
+                    customMsg += "<br><br>請檢查網址列左方的設定按鈕，並允許此網頁存取麥克風。";
+                }
+                showCustomModal("麥克風存取失敗", customMsg);
+            }
+        }
+
+        function stopAudioTracking() {
+            isTracking = false;
+            startBtnText.textContent = "啟動麥克風偵測";
+            startBtnIcon.textContent = "🎤";
+            startBtn.className = "flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2";
+            
+            if (javascriptNode) {
+                javascriptNode.onaudioprocess = null;
+                javascriptNode = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            stopTimer();
+            resetVisuals();
+        }
+
+        // --- 5. 模擬測試模式 ---
+        const simPanel = document.getElementById('simulation-panel');
+        const simSlider = document.getElementById('sim-volume-slider');
+        const simVal = document.getElementById('sim-volume-val');
+
+        simulateBtn.addEventListener('click', () => {
+            toggleSimulation(true);
+        });
+
+        function toggleSimulation(on) {
+            if (on) {
+                // 如果正在進行真實偵測，先關閉真實偵測
+                if (isTracking) stopAudioTracking();
+                
+                isSimulating = true;
+                simPanel.classList.remove('hidden');
+                statusBadge.textContent = "模擬運行中";
+                statusBadge.className = "w-full py-3 rounded-xl font-bold text-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 text-center";
+
+                // 開始虛擬數據泵
+                if (simInterval) clearInterval(simInterval);
+                simInterval = setInterval(() => {
+                    // 加入微量隨機波動
+                    const base = parseInt(simSlider.value);
+                    const jitter = Math.floor(Math.random() * 5) - 2; // -2 ~ +2
+                    const finalVal = Math.max(30, Math.min(100, base + jitter));
+                    simVal.textContent = `${finalVal} dB`;
+                    processVolumeData(finalVal);
+                }, 150);
+            } else {
+                isSimulating = false;
+                simPanel.classList.add('hidden');
+                if (simInterval) {
+                    clearInterval(simInterval);
+                    simInterval = null;
+                }
+                stopTimer();
+                resetVisuals();
+            }
+        }
+
+        // --- 6. 核心數據處理：更新 UI 與計時判斷 ---
+        function processVolumeData(db) {
+            // 更新數字顯示
+            dbValue.textContent = db;
+
+            // 隨機動態裝飾波形
+            waves.forEach((wave, idx) => {
+                const randomHeight = Math.max(4, Math.min(32, (db / 100) * 32 + (Math.random() * 8 - 4)));
+                wave.style.height = `${randomHeight}px`;
+            });
+
+            // 更新彩色進度條 (30dB-100dB 區間映射為 0%-100%)
+            const barPct = Math.max(0, Math.min(100, ((db - 30) / (100 - 30)) * 100));
+            volumeBar.style.width = `${barPct}%`;
+
+            // 色彩切換與狀態判斷
+            if (db >= threshold) {
+                // 超過閥值：警示狀態
+                dbValue.className = "text-5xl font-extrabold font-mono text-rose-500 transition-colors duration-150";
+                statusBadge.textContent = "🔴 吵鬧中！";
+                statusBadge.className = "w-full py-3 rounded-xl font-bold text-lg bg-rose-500 text-white shadow-lg shadow-rose-500/20 text-center animate-pulse";
+                startTimer();
+            } else {
+                // 良好狀態
+                dbValue.className = "text-5xl font-extrabold font-mono text-emerald-400 transition-colors duration-150";
+                statusBadge.textContent = isSimulating ? "🟡 良好 (模擬)" : "🟢 良好";
+                statusBadge.className = isSimulating 
+                    ? "w-full py-3 rounded-xl font-bold text-lg bg-amber-500/20 text-amber-400 border border-amber-500/40 text-center"
+                    : "w-full py-3 rounded-xl font-bold text-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-center";
+                stopTimer();
+            }
+        }
+
+        function resetVisuals() {
+            dbValue.textContent = "30";
+            dbValue.className = "text-5xl font-extrabold font-mono text-slate-500";
+            volumeBar.style.width = "0%";
+            statusBadge.textContent = "等待開始";
+            statusBadge.className = "w-full py-3 rounded-xl font-bold text-lg bg-slate-700 text-slate-300 text-center";
+            waves.forEach(wave => wave.style.height = '8px');
+        }
+
+        // --- 7. 秩序累計計時器邏輯 ---
+        function startTimer() {
+            if (!isTiming) {
+                isTiming = true;
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(() => {
+                    elapsedTime = Date.now() - startTime;
+                    updateTimerDisplay(elapsedTime);
+                }, 100); // 每 100 毫秒更新一次
+            }
+        }
+
+        function stopTimer() {
+            if (isTiming) {
+                isTiming = false;
+                clearInterval(timerInterval);
+            }
+        }
+
+        function updateTimerDisplay(ms) {
+            const totalSeconds = ms / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const tenths = Math.floor((ms % 1000) / 100);
+
+            const mStr = String(minutes).padStart(2, '0');
+            const sStr = String(seconds).padStart(2, '0');
+
+            timerDisplay.textContent = `${mStr}:${sStr}.${tenths}`;
+        }
+
+        resetBtn.addEventListener('click', () => {
+            stopTimer();
+            elapsedTime = 0;
+            updateTimerDisplay(0);
+            if (isTracking && dbValue.textContent >= threshold) {
+                // 如果目前還是吵鬧，重設後會立即重啟計時
+                startTimer();
+            }
+        });
+
+        // --- 8. 自訂 Modal 控制 ---
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function showCustomModal(title, htmlMessage) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').innerHTML = htmlMessage;
+            openModal('alert-modal');
+        }
+    </script>
+</body>
+</html>
+
+
+### 💡 改進設計特點：
+
+* **防安全限制鎖死**：當你在桌面直接雙擊開啟 HTML（導致麥克風無法被瀏覽器啟用）時，右下角的 **「開啟模擬測試」** 能讓您在完全沒有麥克風硬體的情況下，手動調節環境噪音進行計時器、閥值紅線、動態波形與秩序累積時間的功能測試。
+* **無痛權限重啟**：內建精美的 **自訂對話框模式 (Modal)** 取代了會使人煩躁的瀏覽器 `alert()`，並提供直接的手動排除障礙步驟。
+* **高對比現代儀表板**：採用深色太空灰 (Space Gray) 風格，亮綠、亮黃與霓虹粉的漸層進度條能更突出「超標」時的視覺衝擊，對於台下的學生具有更好的警示效果。
